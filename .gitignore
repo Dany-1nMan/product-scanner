@@ -1,0 +1,7 @@
+node_modules/
+.env
+/tmp
+*.log
+.DS_Store
+google-credentials.json
+product-scanner-*.json

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProductScanner.io — Smart Visual Product Search</title>
+  <meta name="description" content="ProductScanner.io — Smart Visual Product Search" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root{
+      --bg:#0f1115; --fg:255,255,255; --glass:rgba(255,255,255,0.06);
+      --brand1:#6366f1; --brand2:#a855f7; --brand3:#ec4899;
+    }
+    html,body{background:var(--bg);color:rgba(var(--fg),0.9);font-family:'Outfit',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;height:100%}
+    .bg-canvas{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.55;filter:blur(2px) saturate(1.1)}
+    .bg-overlay{position:fixed;inset:0;background:
+      radial-gradient(1200px 700px at 25% 50%, rgba(15,17,21,0.0) 0%, rgba(15,17,21,0.35) 45%, rgba(15,17,21,0.85) 100%),
+      linear-gradient(90deg, rgba(15,17,21,0.00) 0%, rgba(15,17,21,0.25) 45%, rgba(15,17,21,0.85) 100%);
+      z-index:0;pointer-events:none}
+    @keyframes drift{0%{transform:translateX(0)}50%{transform:translateX(-40px)}100%{transform:translateX(0)}}
+    @keyframes tileFade{0%{opacity:.18}15%{opacity:.6}85%{opacity:.6}100%{opacity:.18}}
+    .tile{border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.35);animation:tileFade 12s ease-in-out infinite}
+    .tile img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02);animation:drift 18s ease-in-out infinite}
+    .glass{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.07);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .brand-gradient{background:linear-gradient(90deg,var(--brand1),var(--brand2),var(--brand3));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .progress-bar{height:10px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}
+    .progress-fill{height:100%;background:linear-gradient(90deg,var(--brand1),var(--brand2),var(--brand3));width:0%;transition:width 220ms ease-in-out}
+    .hover-glow:hover{box-shadow:0 0 0 2px rgba(99,102,241,.20),0 10px 30px rgba(99,102,241,.15)}
+    .result-card:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(0,0,0,.35)}
+    .focus-ring:focus{outline:none;box-shadow:0 0 0 3px rgba(99,102,241,.45)}
+  </style>
+</head>
+<body>
+  <!-- Background -->
+  <div class="bg-canvas" id="bgCanvas" aria-hidden="true"></div>
+  <div class="bg-overlay" aria-hidden="true"></div>
+
+  <!-- Header -->
+  <header class="w-full max-w-7xl mx-auto px-6 pt-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <!-- AI Lens Icon -->
+      <div class="relative w-9 h-9 rounded-full glass flex items-center justify-center">
+        <svg viewBox="0 0 64 64" class="w-6 h-6">
+          <defs><radialGradient id="g" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#a855f7"/><stop offset="100%" stop-color="#6366f1"/>
+          </radialGradient></defs>
+          <circle cx="32" cy="32" r="13" fill="url(#g)" opacity="0.85"/>
+          <circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+        </svg>
+        <span class="absolute inset-0 rounded-full" style="box-shadow:0 0 18px rgba(168,85,247,.35)"></span>
+      </div>
+      <div>
+        <div class="text-xl sm:text-2xl font-semibold tracking-wide">ProductScanner.io</div>
+        <div class="text-xs text-white/60 -mt-0.5">Smart Visual Product Search.</div>
+      </div>
+    </div>
+
+    <nav class="hidden sm:flex items-center gap-6 text-white/70">
+      <a class="hover:text-white transition" href="#how">How it works</a>
+      <a class="hover:text-white transition" href="#results">Results</a>
+      <a class="hover:text-white transition" href="#about">About</a>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <main class="w-full max-w-6xl mx-auto px-6 mt-14">
+    <section class="grid lg:grid-cols-2 gap-8 items-center">
+      <!-- Left -->
+      <div class="space-y-6">
+        <h1 class="text-4xl sm:text-5xl font-semibold leading-tight">
+          See it. <span class="brand-gradient">Search it.</span> Save time.
+        </h1>
+        <p class="text-white/70 max-w-xl">
+          Upload or drag a product image. We analyze it with AI and scan Irish & British marketplaces for the best matches and prices.
+        </p>
+
+        <!-- Upload Card (fixed: click, drag, paste, visible preview) -->
+        <div class="glass rounded-2xl p-5 sm:p-6 hover-glow transition">
+          <label for="fileInput"
+                 id="dropZone"
+                 class="block border border-white/10 border-dashed rounded-xl p-6 sm:p-8 text-center cursor-pointer"
+                 tabindex="0" role="button" aria-label="Upload or drop an image">
+            <div class="flex flex-col items-center gap-3">
+              <i data-lucide="camera" class="w-8 h-8 text-white/70"></i>
+              <div class="text-lg">Drop an image here, or <span class="underline">click to upload</span></div>
+              <div class="text-sm text-white/60">PNG / JPG / JPEG — up to ~10MB</div>
+              <!-- Visible preview after select -->
+              <img id="previewImg" alt="" class="mt-4 max-h-48 rounded-lg hidden" />
+              <div id="fileName" class="text-sm text-white/60 mt-2"></div>
+            </div>
+          </label>
+          <input id="fileInput" type="file" accept="image/*" class="hidden" />
+
+          <!-- Optional manual text -->
+          <div class="mt-4 flex gap-2">
+            <input id="userPrompt" type="text" placeholder="Describe it (optional)…"
+                   class="w-full glass rounded-lg px-4 py-2 focus-ring placeholder:text-white/40" />
+            <button id="analyzeBtn"
+                    class="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 font-medium">
+              Analyze
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div class="mt-5">
+            <div class="flex items-center justify-between text-sm text-white/70 mb-1">
+              <span>Progress</span><span id="progressLabel">0%</span>
+            </div>
+            <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+            <div id="statusLog" class="mt-3 text-sm text-white/60 h-12 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: removed the 3 blank boxes; kept explanatory text -->
+      <div class="hidden lg:block">
+        <div class="relative glass rounded-2xl p-6 overflow-hidden">
+          <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full"
+               style="background:radial-gradient(closest-side, rgba(99,102,241,.3), rgba(99,102,241,0) 70%);"></div>
+          <div class="absolute -bottom-24 -left-24 w-96 h-96 rounded-full"
+               style="background:radial-gradient(closest-side, rgba(236,72,153,.25), rgba(236,72,153,0) 70%);"></div>
+          <div class="relative">
+            <h3 class="text-lg font-semibold mb-3">What you’ll see</h3>
+            <ul class="space-y-2 text-white/70 text-sm list-disc pl-5">
+              <li>Detected brand & model (e.g., LEGO 75288)</li>
+              <li>Smart marketplace query (buy/sell intent)</li>
+              <li>Prices from eBay / DoneDeal / Adverts.ie</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="mt-16 hidden">
+      <h2 class="text-2xl font-semibold mb-4">Results</h2>
+
+      <div id="summaryCard" class="glass rounded-xl p-5 mb-6 hidden">
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Show uploaded image again here so users know what they submitted -->
+          <img id="uploadedResultImg" alt="Uploaded" class="w-16 h-16 rounded-lg object-cover border border-white/10" />
+          <span class="px-3 py-1 rounded-full bg-white/10 text-white/80 text-sm" id="summaryBrand">—</span>
+          <span class="px-3 py-1 rounded-full bg-white/10 text-white/80 text-sm" id="summaryModel">—</span>
+          <span class="px-3 py-1 rounded-full bg-white/10 text-white/80 text-sm" id="summaryQuery">—</span>
+        </div>
+      </div>
+
+      <div id="cards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </section>
+
+    <section id="how" class="mt-20">
+      <h3 class="text-xl font-semibold mb-3">How it works</h3>
+      <p class="text-white/70 max-w-3xl">
+        We analyze your image with AI to identify the product (brand, model, keywords), then search popular Irish marketplaces and
+        present prices side-by-side — so you can buy or sell with confidence.
+      </p>
+    </section>
+
+    <section id="about" class="mt-12 mb-20">
+      <h3 class="text-xl font-semibold mb-3">About</h3>
+      <p class="text-white/70 max-w-3xl">
+        ProductScanner.io is a simple, privacy-conscious tool. It ignores faces and focuses only on products and text.
+      </p>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/10 py-8 text-center text-white/50">
+    © 2025 ProductScanner.io — Powered by OpenAI & Google Vision
+  </footer>
+
+  <!-- App JS -->
+  <script>
+    // ---------- CONFIG ----------
+    const USE_BACKEND = true; // set false to demo UI only
+    const API_BASE = 'http://localhost:3000';
+
+    // 15 local background images
+    const BG_IMAGES = Array.from({length:15},(_,i)=>`assets/bg${i+1}.jpg`);
+
+    // ---------- Icons ----------
+    window.lucide && lucide.createIcons();
+
+    // ---------- Utilities ----------
+    const log = (msg) => {
+      const el = document.getElementById('statusLog');
+      el.innerHTML = (el.innerHTML + `<div>${new Date().toLocaleTimeString()} — ${msg}</div>`).slice(-1500);
+      el.scrollTop = el.scrollHeight;
+    };
+    const setProgress = (pct) => {
+      document.getElementById('progressFill').style.width = Math.max(0,Math.min(100,pct)) + '%';
+      document.getElementById('progressLabel').textContent = Math.round(pct) + '%';
+    };
+    function escapeHTML(str=''){return str.replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}
+    function formatPrice(p, cur){
+      if (p==null || isNaN(p)) return '—';
+      const c=(cur&&typeof cur==='string')?cur.replace('€','EUR'):'EUR';
+      try{ return new Intl.NumberFormat('en-IE',{style:'currency',currency:c}).format(p); }
+      catch{ return (cur||'€')+Number(p).toFixed(2); }
+    }
+
+    // ---------- Background collage (aligned grid, no overlap) ----------
+    (function mountBackground(){
+      const root = document.getElementById('bgCanvas');
+
+      // Create a right-aligned grid wrapper to avoid overlaps
+      const wrap = document.createElement('div');
+      wrap.style.position = 'absolute';
+      wrap.style.top = '8%';
+      wrap.style.right = '4%';
+      wrap.style.width = '60%';
+      wrap.style.display = 'grid';
+      wrap.style.gridTemplateColumns = 'repeat(5, 220px)'; // 5 columns
+      wrap.style.gridAutoRows = '160px';                   // row height
+      wrap.style.gap = '26px';
+      wrap.style.justifyContent = 'end';
+      wrap.style.alignContent = 'center';
+
+      // Place exactly 15 tiles in the grid
+      const picks=[...BG_IMAGES];
+      const pick=()=>picks[Math.floor(Math.random()*picks.length)];
+
+      for(let i=0;i<15;i++){
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.style.animationDelay = (Math.random()*6)+'s';
+        const img = document.createElement('img');
+        img.src = pick();
+        img.alt = 'product background';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        tile.appendChild(img);
+        wrap.appendChild(tile);
+      }
+
+      // Periodically swap a random tile
+      setInterval(()=>{
+        const tiles = wrap.querySelectorAll('.tile img');
+        if(!tiles.length) return;
+        const t = tiles[Math.floor(Math.random()*tiles.length)];
+        t.style.opacity = '0';
+        setTimeout(()=>{ t.src = pick(); t.onload = ()=> t.style.opacity='1'; }, 220);
+      }, 2500);
+
+      root.appendChild(wrap);
+    })();
+
+    // ---------- Upload handling (click, drag-drop, paste) ----------
+    const fileInput  = document.getElementById('fileInput');
+    const dropZone   = document.getElementById('dropZone');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const userPrompt = document.getElementById('userPrompt');
+    const previewImg = document.getElementById('previewImg');
+    const fileNameEl = document.getElementById('fileName');
+
+    let currentDataUrl = ''; // keep a copy to show in Results
+
+    function setSelectedFileUI(file){
+      if(!file){
+        previewImg.classList.add('hidden'); previewImg.src=''; fileNameEl.textContent=''; currentDataUrl='';
+        return;
+      }
+      fileNameEl.textContent = `${file.name} (${Math.round(file.size/1024)} KB)`;
+      const rd=new FileReader();
+      rd.onload=()=>{ 
+        previewImg.src=rd.result; 
+        previewImg.classList.remove('hidden');
+        currentDataUrl = rd.result; // save for results summary
+      };
+      rd.readAsDataURL(file);
+    }
+    function pickFirstImage(files){
+      if(!files||!files.length) return null;
+      for(const f of files){ if(/^image\//i.test(f.type)) return f; }
+      return null;
+    }
+    function toBase64(file){
+      return new Promise((resolve,reject)=>{
+        const rd=new FileReader();
+        rd.onload=()=>{ const s=(rd.result||'').toString(); resolve(s.includes(',')?s.split(',')[1]:''); };
+        rd.onerror=reject; rd.readAsDataURL(file);
+      });
+    }
+
+    fileInput.addEventListener('change',()=>{ const f=pickFirstImage(fileInput.files); setSelectedFileUI(f); });
+
+    ['dragenter','dragover','dragleave','drop'].forEach(evt=>{
+      document.addEventListener(evt,(e)=>{ e.preventDefault(); e.stopPropagation(); },false);
+    });
+    dropZone.addEventListener('dragover',()=>dropZone.classList.add('ring-2','ring-indigo-500/60'));
+    dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('ring-2','ring-indigo-500/60'));
+    dropZone.addEventListener('drop',(e)=>{
+      dropZone.classList.remove('ring-2','ring-indigo-500/60');
+      const f=pickFirstImage(e.dataTransfer?.files||[]); if(!f){ log('Please drop a valid image file.'); return; }
+      const dt=new DataTransfer(); dt.items.add(f); fileInput.files=dt.files; setSelectedFileUI(f);
+    });
+    document.addEventListener('paste',(e)=>{
+      const items=e.clipboardData?.items||[]; for(const it of items){
+        if(it.kind==='file' && /^image\//i.test(it.type)){ const f=it.getAsFile(); const dt=new DataTransfer(); dt.items.add(f); fileInput.files=dt.files; setSelectedFileUI(f); log('Image pasted from clipboard.'); break; }
+      }
+    });
+
+    // ---------- Analyze flow ----------
+    analyzeBtn.addEventListener('click', async ()=>{
+      const f=pickFirstImage(fileInput.files); const prompt=userPrompt.value.trim();
+      if(!f){ log('Please choose an image first.'); return; }
+
+      setProgress(5); log('Reading file…');
+      const b64=await toBase64(f); setProgress(12);
+
+      if(!USE_BACKEND){ await demoProgress(); showResultsDemo(); return; }
+
+      try{
+        log('Analyzing image (Vision)…'); setProgress(25);
+        const vres = await fetch(API_BASE+'/api/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:b64})}).then(r=>r.json());
+        if(vres.error) throw new Error(vres.error);
+
+        setProgress(42); log('Inferring intent & building query (OpenAI)…');
+        const ires = await fetch(API_BASE+'/api/openai/intent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          labels: vres.labels, logos: vres.logos, webEntities: vres.webEntities, bestGuess: vres.bestGuess,
+          ocrText: vres.ocrText, modelHints: vres.modelHints, userPrompt: prompt, secondOpinion: vres.secondOpinion||null
+        })}).then(r=>r.json());
+        if(ires.error) throw new Error(ires.error);
+
+        const query = ires.bestQuery || 'product';
+        setProgress(60); log('Searching marketplaces…');
+        const sres = await fetch(API_BASE+'/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query, context:{secondOpinion: vres.secondOpinion, modelHints: vres.modelHints, bestGuess: vres.bestGuess}})}).then(r=>r.json());
+        if(sres.error) throw new Error(sres.error);
+
+        setProgress(92);
+        renderResults({
+          brand:(vres.secondOpinion&&vres.secondOpinion.brand)||(vres.logos&&vres.logos[0])||'—',
+          model:(vres.modelHints&&vres.modelHints[0])||(vres.secondOpinion&&vres.secondOpinion.model)||'—',
+          query, results:sres.results||[]
+        });
+        setProgress(100); log('Done.');
+      }catch(err){ console.error(err); log('Error: '+(err.message||'Unknown error')); setProgress(0); }
+    });
+
+    async function demoProgress(){ for(let i=12;i<=100;i+=7){ await new Promise(r=>setTimeout(r,120)); setProgress(i);} log('Demo complete. (Backend disabled)'); }
+
+    // ---------- Results ----------
+    function sanitizeHref(url){
+      if(!url) return null;
+      if(/^https?:\/\//i.test(url)) return url;
+      // if it looks like domain/path, prefix https
+      if(/^[\w.-]+\.[a-z]{2,}.*$/i.test(url)) return 'https://' + url.replace(/^\/+/, '');
+      return null; // don't render as link if it's not a valid URL
+    }
+
+    function renderResults({brand,model,query,results}){
+      const resultsSec=document.getElementById('results');
+      const summary=document.getElementById('summaryCard');
+      const b=document.getElementById('summaryBrand');
+      const m=document.getElementById('summaryModel');
+      const q=document.getElementById('summaryQuery');
+      const cards=document.getElementById('cards');
+      const uploadedImg=document.getElementById('uploadedResultImg');
+
+      resultsSec.classList.remove('hidden'); summary.classList.remove('hidden');
+      b.textContent=brand||'—'; m.textContent=model||'—'; q.textContent='Query: '+(query||'—');
+      // show the original uploaded image here too
+      uploadedImg.src = currentDataUrl || '';
+      uploadedImg.classList.toggle('hidden', !currentDataUrl);
+
+      cards.innerHTML='';
+
+      if(!results||results.length===0){
+        const empty=document.createElement('div');
+        empty.className='glass rounded-xl p-6 text-white/70';
+        empty.textContent='No results yet. Try a clearer photo or add brand/model in the description.';
+        cards.appendChild(empty); return;
+      }
+
+      for(const r of results){
+        const href = sanitizeHref(r.url);
+        const inner = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1">
+              <div class="text-sm font-medium mb-1 line-clamp-2">${escapeHTML(r.title||'—')}</div>
+              <div class="text-xs text-white/60">${escapeHTML(r.source||'—')}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-lg font-semibold">${formatPrice(r.price,r.currency)}</div>
+              ${href ? '<div class="text-xs text-white/50 mt-0.5">View listing →</div>' : '<div class="text-xs text-white/40 mt-0.5">No link</div>'}
+            </div>
+          </div>`;
+
+        let card;
+        if (href){
+          card=document.createElement('a');
+          card.href=href; card.target='_blank'; card.rel='noopener';
+        } else {
+          card=document.createElement('div');
+        }
+        card.className='glass rounded-xl p-4 block transition result-card';
+        card.innerHTML=inner;
+        cards.appendChild(card);
+      }
+    }
+
+    // ---------- Init icons ----------
+    window.lucide && lucide.createIcons();
+  </script>
+</body>
+</html>
